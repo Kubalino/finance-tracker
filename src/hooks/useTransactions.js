@@ -46,6 +46,23 @@ export function useTransactions() {
     await refresh();
   }, [refresh]);
 
+  const existingHashes = useCallback(async () => {
+    const hashes = await db.transactions.where('hash').above('').toArray();
+    return new Set(hashes.map((tx) => tx.hash));
+  }, []);
+
+  const addTransactionsBulk = useCallback(async (rows) => {
+    const withIds = rows.map((row) => ({
+      id: uuid(),
+      source: 'import',
+      createdAt: new Date().toISOString(),
+      ...row,
+    }));
+    await db.transactions.bulkAdd(withIds);
+    await refresh();
+    return withIds;
+  }, [refresh]);
+
   const byPeriod = useCallback((year, month) => {
     return transactions.filter((tx) => {
       const d = tx.effectiveDate;
@@ -64,6 +81,8 @@ export function useTransactions() {
     addTransaction,
     updateTransaction,
     deleteTransaction,
+    addTransactionsBulk,
+    existingHashes,
     byPeriod,
     byType,
   };

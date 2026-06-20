@@ -1,0 +1,41 @@
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 24px;
+  border: 2px dashed var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+  text-align: center;
+}
+
+.dropzone:hover,
+.dragging {
+  border-color: var(--accent);
+  background: var(--accentBg);
+}
+
+.icon {
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  margin: 0;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--textMuted);
+  margin: 0;
+}
+
+.hiddenInput {
+  display: none;
+}

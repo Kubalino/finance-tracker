@@ -1,0 +1,41 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.cancelBtn {
+  padding: 9px 18px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--textSec);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.15s;
+}
+
+.cancelBtn:hover {
+  background: var(--bg2);
+}
+
+.confirmBtn {
+  padding: 9px 18px;
+  border: none;
+  border-radius: 9px;
+  background: var(--accentDk);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.15s;
+}
+
+.confirmBtn:hover {
+  background: var(--accent);
+}
