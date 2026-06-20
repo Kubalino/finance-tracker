@@ -1,0 +1,11 @@
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  transition: border-color 0.2s;
+}
+
+.card:hover {
+  border-color: var(--borderHov);
+}

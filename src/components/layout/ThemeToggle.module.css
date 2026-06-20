@@ -1,0 +1,17 @@
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--accent);
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.toggle:hover {
+  border-color: var(--borderHov);
+  background: var(--cardHover);
+}
