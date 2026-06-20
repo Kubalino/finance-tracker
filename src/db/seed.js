@@ -1,5 +1,6 @@
 import { db } from './index';
 import { computeEffectiveDate } from '../utils/dateUtils';
+import { supabase, isSupabaseConfigured } from './supabase';
 
 export const DEFAULT_CATEGORIES = {
   Income: ['Employment (Net)', 'Side Hustle (Net)', 'Dividends'],
@@ -98,6 +99,12 @@ function uuid() {
 }
 
 export async function seedDatabase() {
+  if (isSupabaseConfigured) {
+    const { data } = await supabase.auth.getSession();
+    // A signed-in device should pull its real data via sync, not get demo fixtures.
+    if (data.session) return;
+  }
+
   await db.transaction('rw', db.categories, db.settings, db.transactions, db.keywords, async () => {
     const [categoryCount, settingsCount, txCount, keywordCount] = await Promise.all([
       db.categories.count(),

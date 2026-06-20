@@ -82,3 +82,13 @@ create policy "Users manage their own settings" on public.settings
 
 create policy "Users manage their own tombstones" on public.tombstones
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- RLS policies only filter rows; Postgres also requires explicit table-level
+-- grants for the authenticated role, which the SQL Editor doesn't set up
+-- automatically the way the Table Editor UI does.
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on public.transactions to authenticated;
+grant select, insert, update, delete on public.categories to authenticated;
+grant select, insert, update, delete on public.keywords to authenticated;
+grant select, insert, update, delete on public.settings to authenticated;
+grant select, insert, update, delete on public.tombstones to authenticated;

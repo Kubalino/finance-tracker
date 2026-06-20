@@ -10,23 +10,27 @@ export default function Settings() {
   const categoriesApi = useCategories();
   const { settings, updateSettings } = useSettings();
 
-  if (!settings || categoriesApi.loading) return null;
+  const dataLoaded = settings && !categoriesApi.loading;
 
   return (
     <div className={styles.page}>
-      <CategoryEditor
-        byType={categoriesApi.byType}
-        addCategory={categoriesApi.addCategory}
-        renameCategory={categoriesApi.renameCategory}
-        reorderCategory={categoriesApi.reorderCategory}
-        deleteCategory={categoriesApi.deleteCategory}
-      />
+      {dataLoaded && (
+        <>
+          <CategoryEditor
+            byType={categoriesApi.byType}
+            addCategory={categoriesApi.addCategory}
+            renameCategory={categoriesApi.renameCategory}
+            reorderCategory={categoriesApi.reorderCategory}
+            deleteCategory={categoriesApi.deleteCategory}
+          />
 
-      <SettingsForm settings={settings} onUpdate={updateSettings} />
+          <SettingsForm settings={settings} onUpdate={updateSettings} />
+        </>
+      )}
 
       <AuthPanel onDataChanged={() => window.location.reload()} />
 
-      <DataManagement onDataChanged={() => window.location.reload()} />
+      {dataLoaded && <DataManagement onDataChanged={() => window.location.reload()} />}
     </div>
   );
 }
