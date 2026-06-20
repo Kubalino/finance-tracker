@@ -38,8 +38,30 @@
   color: var(--textSec);
 }
 
-.table tbody tr:hover {
+.row {
+  cursor: pointer;
+}
+
+.row:hover {
   background: var(--bg2);
+}
+
+.deleteBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--textMuted);
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.deleteBtn:hover {
+  background: var(--error);
+  color: white;
 }
 
 .badge {

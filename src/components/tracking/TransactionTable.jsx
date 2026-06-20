@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, Trash2 } from 'lucide-react';
 import Card from '../shared/Card';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { computeRunningBalances } from '../../utils/calculations';
@@ -16,7 +16,7 @@ const COLUMNS = [
   { key: 'effectiveDate', label: 'Effective Date' },
 ];
 
-export default function TransactionTable({ transactions }) {
+export default function TransactionTable({ transactions, onRowClick, onDelete }) {
   const [sortKey, setSortKey] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
   const [page, setPage] = useState(0);
@@ -63,16 +63,17 @@ export default function TransactionTable({ transactions }) {
                 </th>
               ))}
               <th className={styles.balanceCol}>Running Balance</th>
+              <th className={styles.balanceCol}></th>
             </tr>
           </thead>
           <tbody>
             {pageRows.length === 0 && (
               <tr>
-                <td colSpan={COLUMNS.length + 1} className={styles.empty}>No transactions match the current filters</td>
+                <td colSpan={COLUMNS.length + 2} className={styles.empty}>No transactions match the current filters</td>
               </tr>
             )}
             {pageRows.map((tx) => (
-              <tr key={tx.id}>
+              <tr key={tx.id} className={styles.row} onClick={() => onRowClick?.(tx)}>
                 <td>{formatDate(tx.date)}</td>
                 <td><span className={`${styles.badge} ${styles[tx.type.toLowerCase()]}`}>{tx.type}</span></td>
                 <td>{tx.category}</td>
@@ -80,6 +81,15 @@ export default function TransactionTable({ transactions }) {
                 <td className={styles.details}>{tx.details || '—'}</td>
                 <td>{formatDate(tx.effectiveDate)}</td>
                 <td className="monospace">{formatCurrency(runningBalances.get(tx.id))}</td>
+                <td>
+                  <button
+                    className={styles.deleteBtn}
+                    onClick={(e) => { e.stopPropagation(); onDelete?.(tx); }}
+                    aria-label="Delete transaction"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

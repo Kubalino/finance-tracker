@@ -1,0 +1,43 @@
+.message {
+  font-size: 14px;
+  color: var(--textSec);
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.cancelBtn {
+  padding: 9px 18px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--textSec);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.15s;
+}
+
+.cancelBtn:hover {
+  background: var(--bg2);
+}
+
+.dangerBtn {
+  padding: 9px 18px;
+  border: 1px solid var(--error);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--error);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.15s;
+}
+
+.dangerBtn:hover {
+  background: var(--error);
+  color: white;
+}

@@ -1,21 +1,33 @@
 import { useMemo, useState } from 'react';
+import { Plus } from 'lucide-react';
 import KPICard from '../components/dashboard/KPICard';
 import TrackingFilters from '../components/tracking/TrackingFilters';
 import TransactionTable from '../components/tracking/TransactionTable';
+import AddEntryForm from '../components/tracking/AddEntryForm';
+import Modal from '../components/shared/Modal';
+import ConfirmDialog from '../components/shared/ConfirmDialog';
 import { useTransactions } from '../hooks/useTransactions';
 import { useCategories } from '../hooks/useCategories';
+import { useSettings } from '../hooks/useSettings';
+import { useToast } from '../hooks/useToast';
 import { trackingBalance } from '../utils/calculations';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import styles from './Tracking.module.css';
 
 export default function Tracking() {
-  const { transactions, loading } = useTransactions();
+  const { transactions, loading, addTransaction, updateTransaction, deleteTransaction } = useTransactions();
   const { byType } = useCategories();
+  const { settings } = useSettings();
+  const showToast = useToast();
 
   const [type, setType] = useState('');
   const [category, setCategory] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+
+  const [editingTx, setEditingTx] = useState(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [deletingTx, setDeletingTx] = useState(null);
 
   const handleTypeChange = (value) => {
     setType(value);
@@ -44,7 +56,30 @@ export default function Tracking() {
     : null;
   const balance = trackingBalance(transactions);
 
-  if (loading) return null;
+  const closeForm = () => {
+    setShowAddForm(false);
+    setEditingTx(null);
+  };
+
+  const handleCreate = async (values) => {
+    await addTransaction(values, settings);
+    showToast('Transaction added');
+    closeForm();
+  };
+
+  const handleUpdate = async (values) => {
+    await updateTransaction(editingTx.id, values);
+    showToast('Transaction updated');
+    closeForm();
+  };
+
+  const handleConfirmDelete = async () => {
+    await deleteTransaction(deletingTx.id);
+    showToast('Transaction deleted');
+    setDeletingTx(null);
+  };
+
+  if (loading || !settings) return null;
 
   return (
     <div>
@@ -54,19 +89,49 @@ export default function Tracking() {
         <KPICard label="Running Balance" value={formatCurrency(balance)} />
       </div>
 
-      <TrackingFilters
-        type={type}
-        onTypeChange={handleTypeChange}
-        category={category}
-        onCategoryChange={setCategory}
-        categoryOptions={categoryOptions}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        onDateFromChange={setDateFrom}
-        onDateToChange={setDateTo}
+      <div className={styles.toolbar}>
+        <TrackingFilters
+          type={type}
+          onTypeChange={handleTypeChange}
+          category={category}
+          onCategoryChange={setCategory}
+          categoryOptions={categoryOptions}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={setDateFrom}
+          onDateToChange={setDateTo}
+        />
+        <button className={styles.addBtn} onClick={() => setShowAddForm(true)}>
+          <Plus size={16} /> Add Entry
+        </button>
+      </div>
+
+      <TransactionTable
+        transactions={filtered}
+        onRowClick={setEditingTx}
+        onDelete={setDeletingTx}
       />
 
-      <TransactionTable transactions={filtered} />
+      {(showAddForm || editingTx) && (
+        <Modal title={editingTx ? 'Edit Transaction' : 'Add Transaction'} onClose={closeForm}>
+          <AddEntryForm
+            initial={editingTx}
+            settings={settings}
+            onSubmit={editingTx ? handleUpdate : handleCreate}
+            onCancel={closeForm}
+          />
+        </Modal>
+      )}
+
+      {deletingTx && (
+        <ConfirmDialog
+          title="Delete Transaction"
+          message={`Delete "${deletingTx.category}" (${formatCurrency(deletingTx.amount)} on ${formatDate(deletingTx.date)})? This cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeletingTx(null)}
+        />
+      )}
     </div>
   );
 }

@@ -5,12 +5,15 @@ import './styles/theme.css'
 import './styles/global.css'
 import App from './App.jsx'
 import { seedDatabase } from './db/seed'
+import { ToastProvider } from './hooks/ToastProvider'
 
 seedDatabase().finally(() => {
   createRoot(document.getElementById('root')).render(
     <StrictMode>
       <BrowserRouter basename={import.meta.env.BASE_URL}>
-        <App />
+        <ToastProvider>
+          <App />
+        </ToastProvider>
       </BrowserRouter>
     </StrictMode>,
   )
