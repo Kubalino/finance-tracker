@@ -1,0 +1,48 @@
+.title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.income {
+  color: var(--success);
+}
+
+.expenses {
+  color: var(--error);
+}
+
+.savings {
+  color: var(--accent);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table td {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--textSec);
+}
+
+.table td:last-child {
+  text-align: right;
+  color: var(--text);
+}
+
+.table tfoot td {
+  border-bottom: none;
+  border-top: 1px solid var(--border);
+  font-weight: 600;
+  color: var(--text);
+  padding-top: 10px;
+}
+
+.empty {
+  color: var(--textMuted);
+  text-align: center;
+  padding: 16px 0;
+}
