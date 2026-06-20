@@ -1,0 +1,152 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.addForm {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.input {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg2);
+  color: var(--text);
+  flex: 1;
+  min-width: 140px;
+}
+
+.addBtn {
+  padding: 9px 18px;
+  border: none;
+  border-radius: 9px;
+  background: var(--accentDk);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.15s;
+}
+
+.addBtn:hover {
+  background: var(--accent);
+}
+
+.testRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 9px 12px;
+  background: var(--bg2);
+}
+
+.testIcon {
+  color: var(--textMuted);
+  flex-shrink: 0;
+}
+
+.testInput {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  flex: 1;
+  outline: none;
+}
+
+.testResult {
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.matchFound {
+  color: var(--success);
+  font-weight: 500;
+}
+
+.noMatch {
+  color: var(--textMuted);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th {
+  text-align: left;
+  padding: 8px 12px;
+  color: var(--textMuted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+
+.table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--textSec);
+}
+
+.empty {
+  text-align: center;
+  color: var(--textMuted);
+  padding: 20px 0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.income {
+  background: var(--success);
+  color: #2E3440;
+}
+
+.expenses {
+  background: var(--error);
+  color: #2E3440;
+}
+
+.savings {
+  background: var(--accent);
+  color: #2E3440;
+}
+
+.deleteBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--textMuted);
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.deleteBtn:hover {
+  background: var(--error);
+  color: white;
+}

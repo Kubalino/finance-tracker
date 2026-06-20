@@ -2,12 +2,15 @@ import { useState } from 'react';
 import ImportUpload from '../components/import/ImportUpload';
 import ColumnMapper from '../components/import/ColumnMapper';
 import PreviewTable from '../components/import/PreviewTable';
+import KeywordManager from '../components/import/KeywordManager';
 import Card from '../components/shared/Card';
 import { parseCSVFile, parseAmount, parseDate } from '../utils/csvParser';
 import { generateHash } from '../utils/hash';
+import { matchKeyword } from '../utils/keywordEngine';
 import { computeEffectiveDate } from '../utils/dateUtils';
 import { useTransactions } from '../hooks/useTransactions';
 import { useCategories } from '../hooks/useCategories';
+import { useKeywords } from '../hooks/useKeywords';
 import { useSettings } from '../hooks/useSettings';
 import { useToast } from '../hooks/useToast';
 import styles from './Import.module.css';
@@ -19,9 +22,11 @@ function uuid() {
 export default function Import() {
   const { addTransactionsBulk, existingHashes } = useTransactions();
   const { byType } = useCategories();
+  const { refresh: refreshKeywords } = useKeywords();
   const { settings } = useSettings();
   const showToast = useToast();
 
+  const [tab, setTab] = useState('import');
   const [step, setStep] = useState('upload');
   const [csvData, setCsvData] = useState(null);
   const [previewRows, setPreviewRows] = useState([]);
@@ -39,7 +44,7 @@ export default function Import() {
 
   const handleMappingConfirm = async (mapping) => {
     setProcessing(true);
-    const knownHashes = await existingHashes();
+    const [knownHashes, freshKeywords] = await Promise.all([existingHashes(), refreshKeywords()]);
 
     const candidates = await Promise.all(
       csvData.rows.map(async (row) => {
@@ -50,15 +55,21 @@ export default function Import() {
         const date = parseDate(rawDate);
         const signedAmount = parseAmount(rawAmount);
         const amount = Math.abs(signedAmount);
-        const type = signedAmount < 0 ? 'Expenses' : 'Income';
+        const signGuessedType = signedAmount < 0 ? 'Expenses' : 'Income';
 
         if (!date || Number.isNaN(signedAmount)) {
-          return { rawDate, rawAmount, description, date, amount: signedAmount, type, category: '', hash: null, status: 'invalid' };
+          return { rawDate, rawAmount, description, date, amount: signedAmount, type: signGuessedType, category: '', hash: null, status: 'invalid' };
         }
 
         const hash = await generateHash(date, amount, description);
-        const status = knownHashes.has(hash) ? 'duplicate' : 'unmatched';
-        return { rawDate, rawAmount, description, date, amount, type, category: '', hash, status };
+        if (knownHashes.has(hash)) {
+          return { rawDate, rawAmount, description, date, amount, type: signGuessedType, category: '', hash, status: 'duplicate' };
+        }
+
+        const keywordMatch = matchKeyword(description, freshKeywords);
+        const type = keywordMatch?.type || signGuessedType;
+        const category = keywordMatch?.category || '';
+        return { rawDate, rawAmount, description, date, amount, type, category, hash, status: category ? 'new' : 'unmatched' };
       })
     );
 
@@ -109,32 +120,47 @@ export default function Import() {
 
   return (
     <div className={styles.page}>
-      {step === 'upload' && <ImportUpload onFileSelected={handleFileSelected} />}
+      <div className={styles.tabs}>
+        <button className={`${styles.tab} ${tab === 'import' ? styles.activeTab : ''}`} onClick={() => setTab('import')}>
+          Import CSV
+        </button>
+        <button className={`${styles.tab} ${tab === 'keywords' ? styles.activeTab : ''}`} onClick={() => setTab('keywords')}>
+          Keyword Manager
+        </button>
+      </div>
 
-      {step === 'mapping' && csvData && (
-        processing ? (
-          <Card><p>Processing rows…</p></Card>
-        ) : (
-          <ColumnMapper
-            headers={csvData.headers}
-            sampleRow={csvData.rows[0]}
-            onConfirm={handleMappingConfirm}
-            onCancel={() => { setStep('upload'); setCsvData(null); }}
-          />
-        )
-      )}
+      {tab === 'keywords' && <KeywordManager />}
 
-      {step === 'preview' && (
+      {tab === 'import' && (
         <>
-          <PreviewTable rows={previewRows} onRowChange={handleRowChange} byType={byType} />
-          <div className={styles.actions}>
-            <button className={styles.cancelBtn} onClick={() => { setStep('upload'); setCsvData(null); setPreviewRows([]); }}>
-              Cancel
-            </button>
-            <button className={styles.confirmBtn} onClick={handleConfirmImport}>
-              Confirm Import
-            </button>
-          </div>
+          {step === 'upload' && <ImportUpload onFileSelected={handleFileSelected} />}
+
+          {step === 'mapping' && csvData && (
+            processing ? (
+              <Card><p>Processing rows…</p></Card>
+            ) : (
+              <ColumnMapper
+                headers={csvData.headers}
+                sampleRow={csvData.rows[0]}
+                onConfirm={handleMappingConfirm}
+                onCancel={() => { setStep('upload'); setCsvData(null); }}
+              />
+            )
+          )}
+
+          {step === 'preview' && (
+            <>
+              <PreviewTable rows={previewRows} onRowChange={handleRowChange} byType={byType} />
+              <div className={styles.actions}>
+                <button className={styles.cancelBtn} onClick={() => { setStep('upload'); setCsvData(null); setPreviewRows([]); }}>
+                  Cancel
+                </button>
+                <button className={styles.confirmBtn} onClick={handleConfirmImport}>
+                  Confirm Import
+                </button>
+              </div>
+            </>
+          )}
         </>
       )}
     </div>
