@@ -2,10 +2,12 @@ import { useMemo } from 'react';
 import FilterBar from '../components/shared/FilterBar';
 import KPICard from '../components/dashboard/KPICard';
 import BreakdownTable from '../components/dashboard/BreakdownTable';
+import DonutChart from '../components/dashboard/DonutChart';
+import MonthlyBarChart from '../components/dashboard/MonthlyBarChart';
 import { useTransactions } from '../hooks/useTransactions';
 import { useSettings } from '../hooks/useSettings';
 import { useFilters } from '../hooks/useFilters';
-import { aggregateByCategory, trackingBalance, savingsRate, totalByType } from '../utils/calculations';
+import { aggregateByCategory, trackingBalance, savingsRate, totalByType, monthlyTotals } from '../utils/calculations';
 import { periodCompletionPercent, getYear } from '../utils/dateUtils';
 import { formatCurrency, formatPercent } from '../utils/formatters';
 import styles from './Dashboard.module.css';
@@ -22,6 +24,7 @@ export default function Dashboard() {
   }, [transactions]);
 
   const periodTransactions = useMemo(() => byPeriod(year, month), [byPeriod, year, month]);
+  const yearlyMonthlyTotals = useMemo(() => monthlyTotals(transactions, year), [transactions, year]);
 
   const completion = month ? periodCompletionPercent(year, month) : 100;
   const balance = trackingBalance(periodTransactions);
@@ -46,6 +49,14 @@ export default function Dashboard() {
         <BreakdownTable title="Expenses" tone="expenses" rows={aggregateByCategory(periodTransactions, 'Expenses')} />
         <BreakdownTable title="Savings" tone="savings" rows={aggregateByCategory(periodTransactions, 'Savings')} />
       </div>
+
+      <div className={styles.breakdownGrid}>
+        <DonutChart title="Income by Category" data={aggregateByCategory(periodTransactions, 'Income')} />
+        <DonutChart title="Expenses by Category" data={aggregateByCategory(periodTransactions, 'Expenses')} />
+        <DonutChart title="Savings by Category" data={aggregateByCategory(periodTransactions, 'Savings')} />
+      </div>
+
+      <MonthlyBarChart data={yearlyMonthlyTotals} />
     </div>
   );
 }

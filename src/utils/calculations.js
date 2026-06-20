@@ -34,3 +34,21 @@ export function savingsRate(transactions, method = 'allocated') {
   const savings = totalByType(transactions, 'Savings');
   return (savings / income) * 100;
 }
+
+export function monthlyTotals(transactions, year) {
+  const months = Array.from({ length: 12 }, (_, i) => ({
+    month: i + 1,
+    Income: 0,
+    Expenses: 0,
+    Savings: 0,
+  }));
+
+  transactions.forEach((tx) => {
+    const txYear = Number(tx.effectiveDate.slice(0, 4));
+    if (txYear !== year) return;
+    const txMonth = Number(tx.effectiveDate.slice(5, 7));
+    months[txMonth - 1][tx.type] += tx.amount;
+  });
+
+  return months;
+}
