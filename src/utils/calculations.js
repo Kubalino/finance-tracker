@@ -35,6 +35,22 @@ export function savingsRate(transactions, method = 'allocated') {
   return (savings / income) * 100;
 }
 
+export function signedAmount(tx) {
+  return tx.type === 'Income' ? tx.amount : -tx.amount;
+}
+
+/** Returns a Map of transaction id -> cumulative balance, computed in chronological order. */
+export function computeRunningBalances(transactions) {
+  const chronological = [...transactions].sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
+  const balances = new Map();
+  let running = 0;
+  for (const tx of chronological) {
+    running += signedAmount(tx);
+    balances.set(tx.id, running);
+  }
+  return balances;
+}
+
 export function monthlyTotals(transactions, year) {
   const months = Array.from({ length: 12 }, (_, i) => ({
     month: i + 1,
