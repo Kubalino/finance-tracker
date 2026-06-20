@@ -106,20 +106,21 @@ export async function seedDatabase() {
       db.keywords.count(),
     ]);
 
+    const now = new Date().toISOString();
+
     if (categoryCount === 0) {
       const categoryRows = Object.entries(DEFAULT_CATEGORIES).flatMap(([type, names]) =>
-        names.map((name, order) => ({ id: uuid(), type, name, order }))
+        names.map((name, order) => ({ id: uuid(), type, name, order, updatedAt: now }))
       );
       await db.categories.bulkAdd(categoryRows);
     }
 
     if (settingsCount === 0) {
-      await db.settings.add(DEFAULT_SETTINGS);
+      await db.settings.add({ ...DEFAULT_SETTINGS, updatedAt: now });
     }
 
     if (txCount === 0) {
       const settings = DEFAULT_SETTINGS;
-      const now = new Date().toISOString();
       const rows = SAMPLE_TRANSACTIONS.map((tx) => ({
         id: uuid(),
         hash: null,
@@ -132,12 +133,13 @@ export async function seedDatabase() {
         source: 'manual',
         importBatch: null,
         createdAt: now,
+        updatedAt: now,
       }));
       await db.transactions.bulkAdd(rows);
     }
 
     if (keywordCount === 0) {
-      await db.keywords.bulkAdd(SAMPLE_KEYWORDS.map((k) => ({ id: uuid(), ...k })));
+      await db.keywords.bulkAdd(SAMPLE_KEYWORDS.map((k) => ({ id: uuid(), ...k, updatedAt: now })));
     }
   });
 }

@@ -19,7 +19,7 @@ export function useSettings() {
   }, [refresh]);
 
   const updateSettings = useCallback(async (changes) => {
-    await db.settings.update(SETTINGS_ID, changes);
+    await db.settings.update(SETTINGS_ID, { ...changes, updatedAt: new Date().toISOString() });
     await refresh();
   }, [refresh]);
 

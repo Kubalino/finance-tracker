@@ -1,5 +1,6 @@
 import CategoryEditor from '../components/settings/CategoryEditor';
 import SettingsForm from '../components/settings/SettingsForm';
+import AuthPanel from '../components/settings/AuthPanel';
 import DataManagement from '../components/settings/DataManagement';
 import { useCategories } from '../hooks/useCategories';
 import { useSettings } from '../hooks/useSettings';
@@ -22,6 +23,8 @@ export default function Settings() {
       />
 
       <SettingsForm settings={settings} onUpdate={updateSettings} />
+
+      <AuthPanel onDataChanged={() => window.location.reload()} />
 
       <DataManagement onDataChanged={() => window.location.reload()} />
     </div>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { db } from '../db';
+import { recordTombstone } from '../db/tombstones';
 
 function uuid() {
   return crypto.randomUUID();
@@ -27,24 +28,25 @@ export function useCategories() {
 
   const addCategory = useCallback(async (type, name) => {
     const maxOrder = categories.filter((c) => c.type === type).reduce((max, c) => Math.max(max, c.order), -1);
-    const row = { id: uuid(), type, name, order: maxOrder + 1 };
+    const row = { id: uuid(), type, name, order: maxOrder + 1, updatedAt: new Date().toISOString() };
     await db.categories.add(row);
     await refresh();
     return row;
   }, [categories, refresh]);
 
   const renameCategory = useCallback(async (id, name) => {
-    await db.categories.update(id, { name });
+    await db.categories.update(id, { name, updatedAt: new Date().toISOString() });
     await refresh();
   }, [refresh]);
 
   const reorderCategory = useCallback(async (id, order) => {
-    await db.categories.update(id, { order });
+    await db.categories.update(id, { order, updatedAt: new Date().toISOString() });
     await refresh();
   }, [refresh]);
 
   const deleteCategory = useCallback(async (id) => {
     await db.categories.delete(id);
+    await recordTombstone('categories', id);
     await refresh();
   }, [refresh]);
 

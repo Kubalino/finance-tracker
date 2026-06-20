@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { db } from '../db';
 import { computeEffectiveDate } from '../utils/dateUtils';
+import { recordTombstone } from '../db/tombstones';
 
 function uuid() {
   return crypto.randomUUID();
@@ -22,12 +23,14 @@ export function useTransactions() {
   }, [refresh]);
 
   const addTransaction = useCallback(async (tx, settings) => {
+    const now = new Date().toISOString();
     const row = {
       id: uuid(),
       hash: null,
       source: 'manual',
       importBatch: null,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       ...tx,
       effectiveDate: tx.effectiveDate ?? computeEffectiveDate(tx.date, tx.type, settings),
     };
@@ -37,12 +40,13 @@ export function useTransactions() {
   }, [refresh]);
 
   const updateTransaction = useCallback(async (id, changes) => {
-    await db.transactions.update(id, changes);
+    await db.transactions.update(id, { ...changes, updatedAt: new Date().toISOString() });
     await refresh();
   }, [refresh]);
 
   const deleteTransaction = useCallback(async (id) => {
     await db.transactions.delete(id);
+    await recordTombstone('transactions', id);
     await refresh();
   }, [refresh]);
 
@@ -52,10 +56,12 @@ export function useTransactions() {
   }, []);
 
   const addTransactionsBulk = useCallback(async (rows) => {
+    const now = new Date().toISOString();
     const withIds = rows.map((row) => ({
       id: uuid(),
       source: 'import',
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       ...row,
     }));
     await db.transactions.bulkAdd(withIds);
