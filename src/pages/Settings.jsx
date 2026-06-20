@@ -1,10 +1,29 @@
-import Card from '../components/shared/Card';
+import CategoryEditor from '../components/settings/CategoryEditor';
+import SettingsForm from '../components/settings/SettingsForm';
+import DataManagement from '../components/settings/DataManagement';
+import { useCategories } from '../hooks/useCategories';
+import { useSettings } from '../hooks/useSettings';
+import styles from './Settings.module.css';
 
 export default function Settings() {
+  const categoriesApi = useCategories();
+  const { settings, updateSettings } = useSettings();
+
+  if (!settings || categoriesApi.loading) return null;
+
   return (
-    <Card>
-      <h2>Settings</h2>
-      <p>Category management and app configuration will live here.</p>
-    </Card>
+    <div className={styles.page}>
+      <CategoryEditor
+        byType={categoriesApi.byType}
+        addCategory={categoriesApi.addCategory}
+        renameCategory={categoriesApi.renameCategory}
+        reorderCategory={categoriesApi.reorderCategory}
+        deleteCategory={categoriesApi.deleteCategory}
+      />
+
+      <SettingsForm settings={settings} onUpdate={updateSettings} />
+
+      <DataManagement onDataChanged={() => window.location.reload()} />
+    </div>
   );
 }

@@ -1,0 +1,112 @@
+.title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.actionBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg2);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  transition: border-color 0.15s;
+}
+
+.actionBtn:hover {
+  border-color: var(--borderHov);
+}
+
+.dangerBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border: 1px solid var(--error);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--error);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.15s;
+}
+
+.dangerBtn:hover {
+  background: var(--error);
+  color: white;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.warning {
+  font-size: 14px;
+  color: var(--textSec);
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+
+.warning strong {
+  color: var(--error);
+}
+
+.phraseInput {
+  width: 100%;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg2);
+  color: var(--text);
+  margin-bottom: 20px;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.cancelBtn {
+  padding: 9px 18px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--textSec);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.15s;
+}
+
+.cancelBtn:hover {
+  background: var(--bg2);
+}
+
+.confirmDangerBtn {
+  padding: 9px 18px;
+  border: none;
+  border-radius: 9px;
+  background: var(--error);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  transition: opacity 0.15s;
+}
+
+.confirmDangerBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

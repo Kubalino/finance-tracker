@@ -1,0 +1,128 @@
+.title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.typeTabs {
+  display: flex;
+  gap: 3px;
+  background: var(--bg2);
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  width: fit-content;
+  margin-bottom: 16px;
+}
+
+.typeTab {
+  padding: 7px 15px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--textSec);
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.typeTab:hover {
+  color: var(--text);
+}
+
+.activeTab {
+  color: var(--accent);
+  background: var(--accentBg);
+}
+
+.list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg2);
+}
+
+.name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.editInput {
+  flex: 1;
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 1px solid var(--borderHov);
+  border-radius: 7px;
+  background: var(--card);
+  color: var(--text);
+}
+
+.iconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--textMuted);
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.iconBtn:hover:not(:disabled) {
+  background: var(--cardHover);
+  color: var(--text);
+}
+
+.iconBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.addForm {
+  display: flex;
+  gap: 8px;
+}
+
+.addInput {
+  flex: 1;
+  font-size: 13px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg2);
+  color: var(--text);
+}
+
+.addBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 9px;
+  background: var(--accentDk);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.15s;
+  white-space: nowrap;
+}
+
+.addBtn:hover {
+  background: var(--accent);
+}
