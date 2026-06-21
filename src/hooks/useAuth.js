@@ -20,9 +20,13 @@ export function useAuth() {
     return () => subscription.subscription.unsubscribe();
   }, []);
 
-  const sendMagicLink = useCallback(async (email) => {
-    const redirectTo = window.location.origin + import.meta.env.BASE_URL;
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
+  const signUp = useCallback(async (email, password) => {
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) throw error;
+  }, []);
+
+  const signIn = useCallback(async (email, password) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
   }, []);
 
@@ -30,5 +34,5 @@ export function useAuth() {
     await supabase.auth.signOut();
   }, []);
 
-  return { session, user: session?.user ?? null, loading, sendMagicLink, signOut };
+  return { session, user: session?.user ?? null, loading, signUp, signIn, signOut };
 }
