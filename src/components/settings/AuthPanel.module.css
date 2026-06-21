@@ -16,6 +16,12 @@
   gap: 10px;
 }
 
+.sentMessage {
+  font-size: 13px;
+  color: var(--success);
+  margin: 0;
+}
+
 .input {
   font-size: 14px;
   padding: 9px 12px;
