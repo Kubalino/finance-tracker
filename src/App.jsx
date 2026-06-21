@@ -30,7 +30,7 @@ export default function App() {
   useEffect(() => {
     if (!isSupabaseConfigured) return;
 
-    const { data: subscription } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
       const newUserId = session?.user?.id ?? null;
 
       if (previousUserId.current === undefined) {
@@ -38,19 +38,26 @@ export default function App() {
         return;
       }
 
+      // Supabase warns against awaiting other Supabase calls directly inside
+      // this callback — it can deadlock on the auth client's internal lock.
+      // Deferring with setTimeout lets the triggering call finish first.
       if (newUserId && newUserId !== previousUserId.current) {
-        await wipeLocalData();
-        localStorage.removeItem(LAST_SYNCED_KEY);
-        await pullAll(newUserId, null);
-        localStorage.setItem(LAST_SYNCED_KEY, new Date().toISOString());
         previousUserId.current = newUserId;
-        window.location.reload();
+        setTimeout(async () => {
+          await wipeLocalData();
+          localStorage.removeItem(LAST_SYNCED_KEY);
+          await pullAll(newUserId, null);
+          localStorage.setItem(LAST_SYNCED_KEY, new Date().toISOString());
+          window.location.reload();
+        }, 0);
       } else if (!newUserId && previousUserId.current) {
-        await wipeLocalData();
-        localStorage.removeItem(LAST_SYNCED_KEY);
-        await seedDatabase();
         previousUserId.current = null;
-        window.location.reload();
+        setTimeout(async () => {
+          await wipeLocalData();
+          localStorage.removeItem(LAST_SYNCED_KEY);
+          await seedDatabase();
+          window.location.reload();
+        }, 0);
       }
     });
 
