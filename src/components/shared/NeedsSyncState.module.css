@@ -1,0 +1,26 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: 48px 24px;
+}
+
+.icon {
+  color: var(--textMuted);
+}
+
+.text {
+  font-size: 14px;
+  color: var(--textSec);
+  margin: 0;
+  max-width: 320px;
+}
+
+.link {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  text-decoration: underline;
+}

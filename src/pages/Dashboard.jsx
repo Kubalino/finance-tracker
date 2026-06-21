@@ -4,6 +4,8 @@ import KPICard from '../components/dashboard/KPICard';
 import BreakdownTable from '../components/dashboard/BreakdownTable';
 import DonutChart from '../components/dashboard/DonutChart';
 import MonthlyBarChart from '../components/dashboard/MonthlyBarChart';
+import PageLoader from '../components/shared/PageLoader';
+import NeedsSyncState from '../components/shared/NeedsSyncState';
 import { useTransactions } from '../hooks/useTransactions';
 import { useSettings } from '../hooks/useSettings';
 import { useFilters } from '../hooks/useFilters';
@@ -31,7 +33,8 @@ export default function Dashboard() {
   const rate = savingsRate(periodTransactions, settings?.savingsRateCalc);
   const income = totalByType(periodTransactions, 'Income');
 
-  if (loading || !settings) return null;
+  if (loading) return <PageLoader />;
+  if (!settings) return <NeedsSyncState />;
 
   return (
     <div>

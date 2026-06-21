@@ -37,6 +37,6 @@
   .container {
     left: 14px;
     right: 14px;
-    bottom: 14px;
+    bottom: calc(14px + 64px + env(safe-area-inset-bottom));
   }
 }

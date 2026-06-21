@@ -128,3 +128,10 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+@media (max-width: 640px) {
+  .deleteBtn {
+    width: 36px;
+    height: 36px;
+  }
+}

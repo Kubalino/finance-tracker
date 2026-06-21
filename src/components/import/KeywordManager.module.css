@@ -150,3 +150,14 @@
   background: var(--error);
   color: white;
 }
+
+@media (max-width: 640px) {
+  .deleteBtn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .input {
+    font-size: 16px;
+  }
+}

@@ -1,0 +1,40 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  text-align: center;
+  padding: 24px;
+  gap: 12px;
+}
+
+.icon {
+  color: var(--error);
+}
+
+.title {
+  font-size: 18px;
+}
+
+.message {
+  font-size: 13px;
+  color: var(--textMuted);
+  max-width: 360px;
+}
+
+.button {
+  margin-top: 8px;
+  padding: 9px 18px;
+  border: none;
+  border-radius: 9px;
+  background: var(--accentDk);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.15s;
+}
+
+.button:hover {
+  background: var(--accent);
+}

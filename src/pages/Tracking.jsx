@@ -6,6 +6,8 @@ import TransactionTable from '../components/tracking/TransactionTable';
 import AddEntryForm from '../components/tracking/AddEntryForm';
 import Modal from '../components/shared/Modal';
 import ConfirmDialog from '../components/shared/ConfirmDialog';
+import PageLoader from '../components/shared/PageLoader';
+import NeedsSyncState from '../components/shared/NeedsSyncState';
 import { useTransactions } from '../hooks/useTransactions';
 import { useCategories } from '../hooks/useCategories';
 import { useSettings } from '../hooks/useSettings';
@@ -79,7 +81,8 @@ export default function Tracking() {
     setDeletingTx(null);
   };
 
-  if (loading || !settings) return null;
+  if (loading) return <PageLoader />;
+  if (!settings) return <NeedsSyncState />;
 
   return (
     <div>

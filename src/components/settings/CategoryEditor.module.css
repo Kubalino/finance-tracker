@@ -126,3 +126,15 @@
 .addBtn:hover {
   background: var(--accent);
 }
+
+@media (max-width: 640px) {
+  .iconBtn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .editInput,
+  .addInput {
+    font-size: 16px;
+  }
+}

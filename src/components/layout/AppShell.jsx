@@ -1,4 +1,5 @@
 import Navbar from './Navbar';
+import BottomNav from './BottomNav';
 import ThemeToggle from './ThemeToggle';
 import styles from './AppShell.module.css';
 
@@ -11,6 +12,7 @@ export default function AppShell({ theme, onToggleTheme, children }) {
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />
       </header>
       <main className={`${styles.main} page-enter`}>{children}</main>
+      <BottomNav />
     </div>
   );
 }

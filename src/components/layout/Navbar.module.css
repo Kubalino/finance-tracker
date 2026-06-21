@@ -31,11 +31,7 @@
 }
 
 @media (max-width: 640px) {
-  .label {
+  .nav {
     display: none;
-  }
-
-  .link {
-    padding: 9px;
   }
 }

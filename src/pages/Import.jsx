@@ -4,6 +4,8 @@ import ColumnMapper from '../components/import/ColumnMapper';
 import PreviewTable from '../components/import/PreviewTable';
 import KeywordManager from '../components/import/KeywordManager';
 import Card from '../components/shared/Card';
+import PageLoader from '../components/shared/PageLoader';
+import NeedsSyncState from '../components/shared/NeedsSyncState';
 import { parseCSVFile, parseAmount, parseDate } from '../utils/csvParser';
 import { generateHash } from '../utils/hash';
 import { matchKeyword } from '../utils/keywordEngine';
@@ -23,7 +25,7 @@ export default function Import() {
   const { addTransactionsBulk, existingHashes } = useTransactions();
   const { byType } = useCategories();
   const { refresh: refreshKeywords } = useKeywords();
-  const { settings } = useSettings();
+  const { settings, loading: settingsLoading } = useSettings();
   const showToast = useToast();
 
   const [tab, setTab] = useState('import');
@@ -116,7 +118,8 @@ export default function Import() {
     setPreviewRows([]);
   };
 
-  if (!settings) return null;
+  if (settingsLoading) return <PageLoader />;
+  if (!settings) return <NeedsSyncState />;
 
   return (
     <div className={styles.page}>

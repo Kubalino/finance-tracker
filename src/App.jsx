@@ -1,14 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
-import Dashboard from './pages/Dashboard';
-import Tracking from './pages/Tracking';
-import Import from './pages/Import';
-import Settings from './pages/Settings';
+import PageLoader from './components/shared/PageLoader';
 import { supabase, isSupabaseConfigured } from './db/supabase';
 import { wipeLocalData } from './db/reset';
 import { pullAll, LAST_SYNCED_KEY } from './db/syncEngine';
 import { seedDatabase } from './db/seed';
+
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Tracking = lazy(() => import('./pages/Tracking'));
+const Import = lazy(() => import('./pages/Import'));
+const Settings = lazy(() => import('./pages/Settings'));
 
 export default function App() {
   const [theme, setTheme] = useState(
@@ -66,12 +68,14 @@ export default function App() {
 
   return (
     <AppShell theme={theme} onToggleTheme={toggleTheme}>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/tracking" element={<Tracking />} />
-        <Route path="/import" element={<Import />} />
-        <Route path="/settings" element={<Settings />} />
-      </Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/tracking" element={<Tracking />} />
+          <Route path="/import" element={<Import />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </Suspense>
     </AppShell>
   );
 }
