@@ -355,6 +355,8 @@ Ideas captured for later, not yet built:
 - **Trip/tag grouping**: Kuba prefixes related transaction descriptions with a shared tag during import (e.g. "Málaga - Jantar", "Málaga - Bebidas") so they can later be grouped and summed to see total spend on a given trip/event. Needs a way to search/filter transactions by a description prefix and show a running total. The description field is already editable during CSV import preview to support tagging now; the grouping/filtering UI itself isn't built.
 - **Bundle size**: main + Dashboard chunks are large (Recharts is the biggest contributor). Route-level code-splitting is already in place; further splitting (e.g. lazy-loading Papa Parse only on the Import page) would be the next lever if load time becomes a concern.
 - **Reassign-on-delete for categories**: currently deletion is just blocked if a category is in use. A "reassign transactions to another category, then delete" flow would be more convenient than manually re-editing transactions first.
+- **Dashboard should persist the last year+month selection**: currently `useFilters` always resets to the current year/month on reload. Should remember the user's last-selected combo (e.g. via `localStorage`) so it doesn't reset every time they revisit the page.
+- **CSV import preview needs a delete/remove action per row**: in `PreviewTable` (the per-row category/type assignment step), there's currently no way to exclude a single unwanted row from the import — you can only edit it, not remove it outright. Add a delete control per row.
 
 ---
 
