@@ -21,10 +21,15 @@ function uuid() {
   return crypto.randomUUID();
 }
 
-// Income is always positive. Expenses/Savings default to the natural sign of
-// the bank statement (debit -> positive cost, credit -> negative, e.g. a
-// reimbursement against that same category) but stay user-editable either way.
-function deriveAmount(rawSignedAmount, type) {
+// Income is always positive. When the source file uses signed amounts (the
+// normal bank-statement convention), Expenses/Savings default to the natural
+// sign of the transaction (debit -> positive cost, credit -> negative, e.g. a
+// reimbursement against that same category). When the file has no sign
+// information at all (e.g. an old all-positive export), there's nothing to
+// derive — every amount stays positive until the user manually marks a row
+// as a reimbursement by editing it negative themselves.
+function deriveAmount(rawSignedAmount, type, signedAmounts) {
+  if (!signedAmounts) return Math.abs(rawSignedAmount);
   return type === 'Income' ? Math.abs(rawSignedAmount) : -rawSignedAmount;
 }
 
@@ -64,22 +69,22 @@ export default function Import() {
         const date = parseDate(rawDate);
         const rawSignedAmount = parseAmount(rawAmount);
         const absAmount = Math.abs(rawSignedAmount);
-        const signGuessedType = rawSignedAmount < 0 ? 'Expenses' : 'Income';
+        const signGuessedType = mapping.signedAmounts ? (rawSignedAmount < 0 ? 'Expenses' : 'Income') : 'Expenses';
 
         if (!date || Number.isNaN(rawSignedAmount)) {
-          return { rawDate, rawAmount, description, date, rawSignedAmount, amount: rawSignedAmount, type: signGuessedType, category: '', hash: null, status: 'invalid' };
+          return { rawDate, rawAmount, description, date, rawSignedAmount, amount: rawSignedAmount, type: signGuessedType, category: '', hash: null, status: 'invalid', signedAmounts: mapping.signedAmounts };
         }
 
         const hash = await generateHash(date, absAmount, description);
         if (knownHashes.has(hash)) {
-          return { rawDate, rawAmount, description, date, rawSignedAmount, amount: deriveAmount(rawSignedAmount, signGuessedType), type: signGuessedType, category: '', hash, status: 'duplicate' };
+          return { rawDate, rawAmount, description, date, rawSignedAmount, amount: deriveAmount(rawSignedAmount, signGuessedType, mapping.signedAmounts), type: signGuessedType, category: '', hash, status: 'duplicate', signedAmounts: mapping.signedAmounts };
         }
 
         const keywordMatch = matchKeyword(description, freshKeywords);
         const type = keywordMatch?.type || signGuessedType;
         const category = keywordMatch?.category || '';
-        const amount = deriveAmount(rawSignedAmount, type);
-        return { rawDate, rawAmount, description, date, rawSignedAmount, amount, type, category, hash, status: category ? 'new' : 'unmatched' };
+        const amount = deriveAmount(rawSignedAmount, type, mapping.signedAmounts);
+        return { rawDate, rawAmount, description, date, rawSignedAmount, amount, type, category, hash, status: category ? 'new' : 'unmatched', signedAmounts: mapping.signedAmounts };
       })
     );
 
@@ -96,7 +101,7 @@ export default function Import() {
       // Re-derive the amount's sign for the new type, unless the user has
       // already hand-edited this row's amount directly.
       if (changes.type && !row.amountEdited) {
-        updated.amount = deriveAmount(row.rawSignedAmount, changes.type);
+        updated.amount = deriveAmount(row.rawSignedAmount, changes.type, row.signedAmounts);
       }
 
       if (updated.status !== 'duplicate' && updated.status !== 'invalid') {

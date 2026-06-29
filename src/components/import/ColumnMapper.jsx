@@ -10,6 +10,7 @@ const FIELDS = [
 
 export default function ColumnMapper({ headers, sampleRow, onConfirm, onCancel }) {
   const [mapping, setMapping] = useState({ date: '', amount: '', description: '' });
+  const [signedAmounts, setSignedAmounts] = useState(true);
 
   const isComplete = FIELDS.every((f) => mapping[f.key] !== '');
 
@@ -39,6 +40,21 @@ export default function ColumnMapper({ headers, sampleRow, onConfirm, onCancel }
         ))}
       </div>
 
+      <label className={styles.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={signedAmounts}
+          onChange={(e) => setSignedAmounts(e.target.checked)}
+        />
+        <span>
+          Amounts are signed (negative = money out, positive = money in)
+          <span className={styles.checkboxHint}>
+            Uncheck if every amount in this file is positive — e.g. an export where a separate column
+            already says the category/type instead of the sign of the number.
+          </span>
+        </span>
+      </label>
+
       <div className={styles.actions}>
         <button className={styles.cancelBtn} onClick={onCancel}>Cancel</button>
         <button
@@ -48,6 +64,7 @@ export default function ColumnMapper({ headers, sampleRow, onConfirm, onCancel }
             date: Number(mapping.date),
             amount: Number(mapping.amount),
             description: Number(mapping.description),
+            signedAmounts,
           })}
         >
           Continue
