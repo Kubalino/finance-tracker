@@ -32,8 +32,10 @@ export default function AddEntryForm({ initial, settings, onSubmit, onCancel }) 
     if (!form.type) errs.type = 'Type is required';
     if (!form.category) errs.category = 'Category is required';
     const amountNum = Number(form.amount);
-    if (!form.amount || Number.isNaN(amountNum) || amountNum <= 0) {
-      errs.amount = 'Amount must be a positive number';
+    if (!form.amount || Number.isNaN(amountNum) || amountNum === 0) {
+      errs.amount = 'Amount cannot be zero';
+    } else if (form.type === 'Income' && amountNum < 0) {
+      errs.amount = 'Income amount must be positive';
     }
     return errs;
   };
@@ -91,11 +93,14 @@ export default function AddEntryForm({ initial, settings, onSubmit, onCancel }) 
         <input
           type="number"
           step="0.01"
-          min="0"
+          min={form.type === 'Income' ? '0' : undefined}
           value={form.amount}
           onChange={(e) => update('amount', e.target.value)}
           className={styles.input}
         />
+        {form.type !== 'Income' && (
+          <span className={styles.hint}>Negative allowed — e.g. a partial reimbursement against this category</span>
+        )}
         {errors.amount && <span className={styles.error}>{errors.amount}</span>}
       </label>
 

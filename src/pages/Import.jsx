@@ -21,6 +21,13 @@ function uuid() {
   return crypto.randomUUID();
 }
 
+// Income is always positive. Expenses/Savings default to the natural sign of
+// the bank statement (debit -> positive cost, credit -> negative, e.g. a
+// reimbursement against that same category) but stay user-editable either way.
+function deriveAmount(rawSignedAmount, type) {
+  return type === 'Income' ? Math.abs(rawSignedAmount) : -rawSignedAmount;
+}
+
 export default function Import() {
   const { addTransactionsBulk, existingHashes } = useTransactions();
   const { byType } = useCategories();
@@ -55,23 +62,24 @@ export default function Import() {
         const description = (row[mapping.description] ?? '').trim();
 
         const date = parseDate(rawDate);
-        const signedAmount = parseAmount(rawAmount);
-        const amount = Math.abs(signedAmount);
-        const signGuessedType = signedAmount < 0 ? 'Expenses' : 'Income';
+        const rawSignedAmount = parseAmount(rawAmount);
+        const absAmount = Math.abs(rawSignedAmount);
+        const signGuessedType = rawSignedAmount < 0 ? 'Expenses' : 'Income';
 
-        if (!date || Number.isNaN(signedAmount)) {
-          return { rawDate, rawAmount, description, date, amount: signedAmount, type: signGuessedType, category: '', hash: null, status: 'invalid' };
+        if (!date || Number.isNaN(rawSignedAmount)) {
+          return { rawDate, rawAmount, description, date, rawSignedAmount, amount: rawSignedAmount, type: signGuessedType, category: '', hash: null, status: 'invalid' };
         }
 
-        const hash = await generateHash(date, amount, description);
+        const hash = await generateHash(date, absAmount, description);
         if (knownHashes.has(hash)) {
-          return { rawDate, rawAmount, description, date, amount, type: signGuessedType, category: '', hash, status: 'duplicate' };
+          return { rawDate, rawAmount, description, date, rawSignedAmount, amount: deriveAmount(rawSignedAmount, signGuessedType), type: signGuessedType, category: '', hash, status: 'duplicate' };
         }
 
         const keywordMatch = matchKeyword(description, freshKeywords);
         const type = keywordMatch?.type || signGuessedType;
         const category = keywordMatch?.category || '';
-        return { rawDate, rawAmount, description, date, amount, type, category, hash, status: category ? 'new' : 'unmatched' };
+        const amount = deriveAmount(rawSignedAmount, type);
+        return { rawDate, rawAmount, description, date, rawSignedAmount, amount, type, category, hash, status: category ? 'new' : 'unmatched' };
       })
     );
 
@@ -84,6 +92,13 @@ export default function Import() {
     setPreviewRows((rows) => rows.map((row, i) => {
       if (i !== index) return row;
       const updated = { ...row, ...changes };
+
+      // Re-derive the amount's sign for the new type, unless the user has
+      // already hand-edited this row's amount directly.
+      if (changes.type && !row.amountEdited) {
+        updated.amount = deriveAmount(row.rawSignedAmount, changes.type);
+      }
+
       if (updated.status !== 'duplicate' && updated.status !== 'invalid') {
         updated.status = updated.category ? 'new' : 'unmatched';
       }
@@ -106,7 +121,7 @@ export default function Import() {
       effectiveDate: computeEffectiveDate(r.date, r.type, settings),
       type: r.type,
       category: r.category,
-      amount: r.amount,
+      amount: r.type === 'Income' ? Math.abs(r.amount) : r.amount,
       details: r.description,
       importBatch,
     }));

@@ -420,7 +420,7 @@ finance-dashboard/
 - **State**: React state + Dexie.js. No Redux or external state library unless complexity demands it.
 - **Naming**: PascalCase for components, camelCase for functions/variables, kebab-case for CSS files.
 - **Formatting**: Prettier defaults. 2-space indent.
-- **Amounts**: Always stored as positive numbers. Type (Income/Expenses/Savings) determines the sign in calculations.
+- **Amounts**: Income is always stored positive. Expenses and Savings are normally positive, but may be negative to represent a reimbursement/refund against that same category (e.g. you pay €100 for dinner, a friend pays you back €80 — log a second Expenses/Dinner entry of -€80, giving a net €20 cost, instead of recording the refund as Income). Category aggregation, running balance, and savings rate all net out correctly with this convention. Donut charts filter out categories whose net total is ≤ 0, since a negative slice can't be drawn.
 - **Dates**: ISO strings (`YYYY-MM-DD`) in storage. Formatted for display via `dateUtils.js`.
 - **Currency**: No currency symbol stored. Display formatting adds `€` (EUR). Configurable later if multi-currency needed.
 - **No real data in commits**: Sample data files are clearly marked. `.gitignore` covers output folders.
@@ -436,6 +436,14 @@ All development uses this fixture data. Categories and amounts are realistic but
 - **3 savings categories**: Emergency Fund, Retirement Account, Stock Portfolio
 - **Date range**: Jan 2024 – Mar 2024 (enough to test multi-month views)
 - **~60 transactions** covering all categories and types
+
+---
+
+## Future Improvements
+
+Ideas captured for later, not yet built:
+
+- **Trip/tag grouping**: Kuba prefixes related transaction descriptions with a shared tag during import (e.g. "Málaga - Jantar", "Málaga - Bebidas") specifically so they can later be grouped and summed to see total spend on a given trip/event. Needs a way to search/filter transactions by a description prefix and show a running total — not built yet, but the description field is already editable during CSV import preview to support tagging now.
 
 ---
 

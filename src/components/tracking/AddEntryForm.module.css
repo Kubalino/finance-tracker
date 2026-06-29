@@ -37,6 +37,11 @@
   color: var(--error);
 }
 
+.hint {
+  font-size: 11px;
+  color: var(--textMuted);
+}
+
 .actions {
   display: flex;
   justify-content: flex-end;

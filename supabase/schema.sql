@@ -11,7 +11,9 @@ create table if not exists public.transactions (
   effective_date date not null,
   type text not null check (type in ('Income', 'Expenses', 'Savings')),
   category text not null,
-  amount numeric not null check (amount >= 0),
+  -- Income must be non-negative; Expenses/Savings may be negative to
+  -- represent a reimbursement or refund against that same category.
+  amount numeric not null check (type <> 'Income' or amount >= 0),
   details text,
   source text not null default 'manual',
   import_batch uuid,

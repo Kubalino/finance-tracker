@@ -50,12 +50,6 @@
   opacity: 0.5;
 }
 
-.details {
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .invalidText {
   color: var(--error);
 }
@@ -103,5 +97,30 @@
 }
 
 .select:disabled {
+  opacity: 0.5;
+}
+
+.textInput {
+  font-size: 12px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg2);
+  color: var(--text);
+  width: 220px;
+}
+
+.amountInput {
+  font-size: 12px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg2);
+  color: var(--text);
+  width: 90px;
+}
+
+.textInput:disabled,
+.amountInput:disabled {
   opacity: 0.5;
 }

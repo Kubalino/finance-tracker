@@ -5,7 +5,9 @@ import { colorForIndex } from '../../utils/chartColors';
 import styles from './DonutChart.module.css';
 
 export default function DonutChart({ title, data }) {
-  const hasData = data.length > 0;
+  // Negative/zero net category totals (e.g. fully reimbursed) can't be drawn as a pie slice.
+  const positiveData = data.filter((d) => d.amount > 0);
+  const hasData = positiveData.length > 0;
 
   return (
     <Card>
@@ -14,14 +16,14 @@ export default function DonutChart({ title, data }) {
         <ResponsiveContainer width="100%" height={260}>
           <PieChart>
             <Pie
-              data={data}
+              data={positiveData}
               dataKey="amount"
               nameKey="category"
               innerRadius="55%"
               outerRadius="80%"
-              paddingAngle={data.length > 1 ? 2 : 0}
+              paddingAngle={positiveData.length > 1 ? 2 : 0}
             >
-              {data.map((entry, i) => (
+              {positiveData.map((entry, i) => (
                 <Cell key={entry.category} fill={colorForIndex(i)} stroke="none" />
               ))}
             </Pie>
