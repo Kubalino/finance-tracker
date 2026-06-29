@@ -19,7 +19,7 @@ export default function DonutChart({ title, data }) {
               nameKey="category"
               innerRadius="55%"
               outerRadius="80%"
-              paddingAngle={2}
+              paddingAngle={data.length > 1 ? 2 : 0}
             >
               {data.map((entry, i) => (
                 <Cell key={entry.category} fill={colorForIndex(i)} stroke="none" />
