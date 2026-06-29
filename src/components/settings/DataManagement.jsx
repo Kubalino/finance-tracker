@@ -3,12 +3,17 @@ import { Download, Upload, Trash2 } from 'lucide-react';
 import Card from '../shared/Card';
 import Modal from '../shared/Modal';
 import { db } from '../../db';
+import { supabase } from '../../db/supabase';
+import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
+import { LAST_SYNCED_KEY } from '../../db/syncEngine';
 import styles from './DataManagement.module.css';
 
 const CONFIRM_PHRASE = 'DELETE ALL DATA';
+const REMOTE_TABLES = ['transactions', 'categories', 'keywords', 'settings', 'tombstones'];
 
 export default function DataManagement({ onDataChanged }) {
+  const { user } = useAuth();
   const showToast = useToast();
   const fileInputRef = useRef(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -68,12 +73,37 @@ export default function DataManagement({ onDataChanged }) {
   };
 
   const handleClearAll = async () => {
-    await db.transaction('rw', db.transactions, db.categories, db.keywords, db.settings, async () => {
+    if (user) {
+      try {
+        await Promise.all(
+          REMOTE_TABLES.map((table) => supabase.from(table).delete().eq('user_id', user.id))
+        );
+      } catch {
+        showToast('Could not clear your cloud data — local data was cleared, but cloud may still have old data', 'error');
+      }
+    }
+
+    await db.transaction('rw', db.transactions, db.categories, db.keywords, db.settings, db.tombstones, async () => {
       await db.transactions.clear();
       await db.categories.clear();
       await db.keywords.clear();
       await db.settings.clear();
+      await db.tombstones.clear();
     });
+
+    if (user) {
+      const now = new Date().toISOString();
+      await db.settings.add({
+        id: 'app',
+        lateIncomeShift: true,
+        lateIncomeStartDay: 20,
+        savingsRateCalc: 'allocated',
+        theme: 'dark',
+        updatedAt: now,
+      });
+      localStorage.removeItem(LAST_SYNCED_KEY);
+    }
+
     setShowClearConfirm(false);
     setClearPhrase('');
     showToast('All data cleared');
@@ -108,7 +138,8 @@ export default function DataManagement({ onDataChanged }) {
       {showClearConfirm && (
         <Modal title="Clear All Data" onClose={() => { setShowClearConfirm(false); setClearPhrase(''); }}>
           <p className={styles.warning}>
-            This will permanently delete all transactions, categories, and keyword mappings from this browser.
+            This will permanently delete all transactions, categories, and keyword mappings
+            {user ? ' from this browser and your synced cloud account' : ' from this browser'}.
             This cannot be undone. Type <strong>{CONFIRM_PHRASE}</strong> to confirm.
           </p>
           <input
