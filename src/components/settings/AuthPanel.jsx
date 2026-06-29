@@ -55,6 +55,17 @@ export default function AuthPanel({ onDataChanged }) {
     }
   };
 
+  const handleSignOut = async () => {
+    // Push any unsynced changes while the session is still valid — signOut()
+    // invalidates the token almost immediately, so this can't happen after.
+    try {
+      await sync(user.id);
+    } catch {
+      showToast('Could not sync your latest changes before signing out', 'error');
+    }
+    await signOut();
+  };
+
   if (!user) {
     return (
       <Card>
@@ -106,7 +117,7 @@ export default function AuthPanel({ onDataChanged }) {
             {lastSyncedAt ? `Last synced ${formatDate(lastSyncedAt.slice(0, 10))}` : 'Never synced'}
           </div>
         </div>
-        <button className={styles.signOutBtn} onClick={signOut}>Sign Out</button>
+        <button className={styles.signOutBtn} onClick={handleSignOut}>Sign Out</button>
       </div>
       <button className={styles.syncBtn} onClick={handleSync} disabled={syncing}>
         <RefreshCw size={15} className={syncing ? styles.spinning : ''} />

@@ -5,7 +5,7 @@ import PageLoader from './components/shared/PageLoader';
 import { supabase, isSupabaseConfigured } from './db/supabase';
 import { wipeLocalData } from './db/reset';
 import { pullAll, LAST_SYNCED_KEY } from './db/syncEngine';
-import { seedDatabase } from './db/seed';
+import { backupDemoData, restoreDemoData } from './db/demoBackup';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Tracking = lazy(() => import('./pages/Tracking'));
@@ -16,7 +16,6 @@ export default function App() {
   const [theme, setTheme] = useState(
     () => localStorage.getItem('theme') || 'dark'
   );
-
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
@@ -25,8 +24,10 @@ export default function App() {
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
   // Demo data (logged out) and a real account's data (logged in) are kept
-  // strictly separate: logging in discards local demo data and pulls the
-  // account's cloud data; logging out discards account data and restores demo data.
+  // strictly separate. Logging in snapshots local demo data, then discards it
+  // and pulls the account's cloud data. Logging out (after AuthPanel has
+  // already pushed pending changes, while the session was still valid) wipes
+  // account data and restores the demo snapshot.
   const previousUserId = useRef(undefined);
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export default function App() {
       if (newUserId && newUserId !== previousUserId.current) {
         previousUserId.current = newUserId;
         setTimeout(async () => {
+          await backupDemoData();
           await wipeLocalData();
           localStorage.removeItem(LAST_SYNCED_KEY);
           await pullAll(newUserId, null);
@@ -57,7 +59,7 @@ export default function App() {
         setTimeout(async () => {
           await wipeLocalData();
           localStorage.removeItem(LAST_SYNCED_KEY);
-          await seedDatabase();
+          await restoreDemoData();
           window.location.reload();
         }, 0);
       }
