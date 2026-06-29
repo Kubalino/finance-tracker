@@ -2,7 +2,34 @@
 
 > Personal Income, Expenses & Savings Tracker
 > Owner: Kuba (MarTech Developer)
-> Repo: GitHub Pages hosted SPA
+> Repo: https://github.com/Kubalino/finance-tracker
+> Live: https://kubalino.github.io/finance-tracker/
+
+---
+
+## Current Status (read this first)
+
+**All 12 originally planned sessions are complete and deployed**, plus several
+extras discovered along the way. The app is in daily-use-ready shape:
+
+- Local-first SPA (Dexie/IndexedDB) with optional Supabase cloud sync.
+- **Demo mode vs. real account are strictly separate local data spaces** — see
+  "Demo Data vs. Account Data" below. This is the single most important
+  behavior to understand before touching auth/sync code.
+- Auth is **email + password** (not magic link — see "Decisions & Gotchas").
+- Categories/keywords in the user's real account are fully custom (Portuguese)
+  and migrated from an old spreadsheet export — never hardcode or reference
+  the user's real category names in this repo; they live only in Supabase.
+- CSV import supports both signed (bank-statement-style) and unsigned
+  (all-positive, e.g. old export tools) amount columns via a toggle in the
+  column-mapping step.
+- Amounts: Income is always positive. Expenses/Savings may be **negative** to
+  represent a reimbursement against that same category (net accounting),
+  instead of logging the refund as separate Income.
+
+If you're starting a fresh session on this repo, skim "Decisions & Gotchas"
+below before making sync/auth/import changes — several of these were
+non-obvious bugs that took real debugging effort to find.
 
 ---
 
@@ -23,35 +50,66 @@ Replace an Excel-based budget spreadsheet with a modern, responsive web app. Tra
 ## Tech Stack
 
 ### Frontend (SPA)
-- **React 18+** with Vite
-- **React Router** — tab-based navigation (Dashboard, Tracking, Import, Settings)
+- **React 19** with Vite
+- **React Router** — routes: Dashboard (`/`), Tracking, Import, Settings. Pages are lazy-loaded (`React.lazy` + `Suspense`) for code-splitting.
 - **Recharts** — charts and data visualization
-- **Dexie.js** — IndexedDB wrapper for local cache
+- **Dexie.js** — IndexedDB wrapper, local-first storage
 - **Papa Parse** — in-browser CSV parsing (bank extracts processed client-side)
 - **CSS Modules + CSS Variables** — Nord palette from kuba-brand-guidelines
 - **Lucide React** — icon system (lightweight, tree-shakeable)
 
 ### Data Layer
-- **Supabase (free tier)** — PostgreSQL cloud database, single source of truth
-  - Row-level security (RLS) — only authenticated user can read/write
-  - Auth via Supabase Auth (email/password or magic link)
-  - REST API — static SPA talks to it directly
-  - Encrypted at rest, no intermediaries
-- **IndexedDB** (via Dexie.js) — local cache for fast reads + offline capability
-- **Sync model** — manual "Sync" button: push local → Supabase, pull Supabase → local
-- **JSON fixtures** — sample data for development/testing only
+- **Supabase (free tier)** — PostgreSQL cloud database, single source of truth for a signed-in account
+  - Row-level security (RLS) **plus explicit `GRANT`s to the `authenticated` role** — RLS alone is not enough; see Gotchas.
+  - Auth via Supabase Auth, email/password
+  - REST API — static SPA talks to it directly via `@supabase/supabase-js`
+- **IndexedDB** (via Dexie.js) — local-first store; the only data source when logged out (demo mode)
+- **Sync model** — manual "Sync Now" button in Settings: push local → Supabase, pull Supabase → local, last-write-wins via `updatedAt` timestamps. Deletions propagate via a `tombstones` table.
+- Free Supabase projects **auto-pause after ~7 days of inactivity**. A scheduled GitHub Action (`.github/workflows/keep-alive.yml`) pings the REST API every 4 days to prevent this.
 
 ### Bank CSV Processing (In-Browser)
 - **Papa Parse** — parses CSV files entirely in the browser
-- **Keyword matching engine** — JS-based, matches description fields to categories
-- **Column mapping config** — configurable per bank format (start with 1 generic format)
+- **Keyword matching engine** — JS-based, matches description fields to categories (longest-match-wins, case-insensitive substring)
+- **Column mapping UI** — maps arbitrary CSV columns to date/amount/description, plus a checkbox for whether the file's amounts are signed (bank-statement convention) or all-positive (older export tools, no sign info)
 - Raw CSV files never leave the user's machine — only clean transaction fields are saved
-- **Python scripts** (in `/scripts/`) remain as optional power-user tools for batch processing
+- **Python scripts** (in `/scripts/`) remain as optional power-user tools for batch processing — not built out, low priority
 
 ### Deployment
-- **GitHub Pages** — static SPA hosting
-- **GitHub Actions** — CI/CD for build + deploy on push to main
-- **Vite build** — optimized static output
+- **GitHub Pages** — static SPA hosting, served from `dist/`
+- **GitHub Actions** (`.github/workflows/deploy.yml`) — build + deploy on push to `main`. Injects `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` from repo secrets. Also copies `index.html` to `404.html` post-build so direct navigation to client-side routes (e.g. `/tracking`) doesn't 404 on GitHub Pages' static-only hosting.
+- **GitHub Actions** (`.github/workflows/keep-alive.yml`) — scheduled cron pinging Supabase to prevent free-tier auto-pause.
+
+---
+
+## Demo Data vs. Account Data
+
+The app has two strictly separate local data spaces, both living in the same Dexie database but never mixed:
+
+- **Logged out → demo mode.** On first load with no Supabase session, `seedDatabase()` fills IndexedDB with English-language fixture data (see Sample Data Contract). This is safe to show to friends/family without exposing real data.
+- **Logged in → account mode.** Real data, synced to Supabase, scoped by `user_id` + RLS.
+
+**Transitions** (handled in `App.jsx` via `supabase.auth.onAuthStateChange`):
+- **Login**: snapshot the current demo state to `localStorage` (`backupDemoData`), wipe local tables, pull the account's cloud data, reload.
+- **Logout**: the *push* of any unsynced local changes happens in `AuthPanel.handleSignOut` **before** calling `supabase.auth.signOut()` (not reactively after — see Gotchas). Then the auth-state listener wipes local tables and restores the demo snapshot taken at the last login (`restoreDemoData`, falling back to fresh `seedDatabase()` if no snapshot exists yet), reloads.
+
+This means demo edits persist across login/logout cycles, and account edits are never silently lost on logout.
+
+---
+
+## Decisions & Gotchas
+
+Non-obvious things discovered during development. Read before changing auth/sync/import code.
+
+1. **Supabase auth callback deadlock**: never `await` other Supabase calls (DB queries, etc.) directly inside `onAuthStateChange`'s callback — it can deadlock on the auth client's internal lock while the triggering call (e.g. `signInWithPassword`) is still resolving. Defer with `setTimeout(fn, 0)`.
+2. **Push-before-signOut**: `signOut()` invalidates the session almost immediately. Any push of pending changes must happen *before* calling it (in the UI handler), not in reaction to the resulting `SIGNED_OUT` event — by then the access token is already dead and pushes fail with 401.
+3. **RLS is not enough**: Postgres also needs explicit `grant select, insert, update, delete ... to authenticated` on every table. The Supabase Table Editor UI sets this up automatically; the SQL Editor does not. See `supabase/schema.sql`.
+4. **GitHub Pages SPA routing**: it only serves static files, so a direct hit to `/tracking` 404s unless a `404.html` (copy of `index.html`) exists — added as a build step in `deploy.yml`. React Router then takes over client-side.
+5. **Magic-link auth was tried and reverted**: Supabase's free-tier transactional email has a very low rate limit (a handful per hour), which we hit during testing. Reverted to email + password, which has no such limit. Also: magic-link redirect URLs must match Supabase's configured Site URL/Redirect URLs exactly (including not pointing at `localhost` unless that's where the user will actually click the link).
+6. **Clearing data must clear both places**: "Clear All Data" must delete rows in Supabase too, not just wipe local IndexedDB — otherwise the next "Sync Now" pulls everything right back.
+7. **CSV sign convention varies by source**: real bank statements typically use negative = money out, positive = money in. Some export tools (e.g. an old personal tracker) export everything as positive with no sign info at all. The "Amounts are signed" checkbox in the column-mapping step controls which interpretation is used; default is signed (bank-statement convention).
+8. **Donut chart can't render negative/zero slices**: `DonutChart` filters out any category whose net total is ≤ 0 before passing data to Recharts' `Pie`.
+9. **Stray duplicate keyword/category rows**: when bulk-inserting via direct Dexie writes (as opposed to the app's own hooks), always check for duplicates against what's already synced remotely before pushing — a stray sync mid-session can leave an orphaned remote row that a later pull resurrects after you've deleted the local duplicate.
+10. **Browser caching after deploy**: GitHub Pages asset filenames are content-hashed, but `index.html` itself can be cached by the browser referencing a now-deleted JS chunk. If the live site looks blank after a deploy, hard refresh (Ctrl+Shift+R) before assuming something's broken.
 
 ---
 
@@ -61,28 +119,33 @@ Replace an Excel-based budget spreadsheet with a modern, responsive web app. Tra
 ```
 {
   id:            string (UUID for manual entries)
-  hash:          string (SHA-256 of date+amount+description for imports — dedup key)
+  hash:          string | null (SHA-256 of date+|amount|+description for imports — dedup key; null for manual entries)
   date:          string (ISO date, YYYY-MM-DD — when it happened)
   effectiveDate: string (ISO date — which month it counts toward)
   type:          "Income" | "Expenses" | "Savings"
   category:      string (from dynamic category list per type)
-  amount:        number (always positive, type determines sign)
+  amount:        number — Income always positive. Expenses/Savings normally positive,
+                 but may be negative to represent a reimbursement/refund against that
+                 same category (e.g. -€80 against a €100 Dinner expense nets to €20).
   details:       string (optional description)
   source:        "manual" | "import" (how it was added)
   importBatch:   string | null (batch ID if imported from CSV)
   createdAt:     string (ISO datetime)
+  updatedAt:     string (ISO datetime — drives last-write-wins sync)
 }
 ```
 
 **Deduplication strategy**:
-- **Imported transactions**: `hash = SHA-256(date + amount + description)`. Same bank row imported twice → same hash → duplicate detected and skipped.
+- **Imported transactions**: `hash = SHA-256(date + |amount| + description)` (always the absolute value, regardless of sign). Same bank row imported twice → same hash → duplicate detected and skipped.
 - **Manual entries**: `id = UUID` generated at creation. Always unique.
 
 ### Categories (fully dynamic — managed from Settings)
 Categories are stored in IndexedDB/Supabase, not hardcoded. Users can add, edit,
-rename, and delete categories per type at any time from the Settings page.
+rename, reorder, and delete categories per type at any time from the Settings page.
+Deletion is blocked (with an explanatory dialog) if any transaction still references
+that category.
 
-**Default seed categories** (loaded on first run):
+**Default seed categories** (demo mode only — see Sample Data Contract):
 ```
 Income:    ["Employment (Net)", "Side Hustle (Net)", "Dividends"]
 Expenses:  ["Housing", "Utilities", "Groceries", "Transportation",
@@ -94,24 +157,33 @@ Savings:   ["Emergency Fund", "Retirement Account", "Stock Portfolio"]
 ### CategoryKeyword (for auto-categorization of bank imports)
 ```
 {
-  id:       string (UUID)
-  keyword:  string (matched against CSV description field, case-insensitive)
-  type:     "Income" | "Expenses" | "Savings"
-  category: string
+  id:        string (UUID)
+  keyword:   string (matched against CSV description field, case-insensitive substring, longest-match-wins)
+  type:      "Income" | "Expenses" | "Savings"
+  category:  string
+  updatedAt: string (ISO datetime)
 }
 ```
 
 ### AppSettings
 ```
 {
+  id:                 "app" (single row)
   lateIncomeShift:    boolean (default: true)
   lateIncomeStartDay: number (default: 20 — income on/after day X counts as next month)
   savingsRateCalc:    "allocated" | "passive"
     — "allocated": Savings / Income
     — "passive":   (Income - Expenses) / Income
   theme:              "dark" | "light" (default: "dark")
+  updatedAt:          string (ISO datetime)
 }
 ```
+
+### Tombstones (sync-only, not user-facing)
+```
+{ id: string (matches the deleted row's id), table: string, deletedAt: string }
+```
+Recorded locally on every delete so the deletion can propagate to the other side on the next sync, instead of a pull silently resurrecting a deleted row.
 
 ---
 
@@ -128,67 +200,46 @@ Savings:   ["Emergency Fund", "Retirement Account", "Stock Portfolio"]
 
 **Filters**: Year selector + Month selector (or "Full Year")
 
-**Breakdown Section**:
-- Income table: category, tracked amount, with totals
-- Expenses table: category, tracked amount, with totals
-- Savings table: category, tracked amount, with totals
+**Breakdown Section**: Income / Expenses / Savings tables — category, net amount, total row.
 
 **Charts**:
-- Donut charts: Income by category, Expenses by category, Savings by category
-- Bar chart: Monthly tracked totals (Income vs Expenses vs Savings) across year
+- Donut charts per type (categories with net total ≤ 0 are filtered out — can't render a negative slice)
+- Monthly bar chart: Income vs Expenses vs Savings across the selected year
 
 ### 2. Tracking (`/tracking`)
 **Purpose**: Full transaction ledger + manual entry.
 
-**Header KPIs**:
-- Date of last entry
-- Number of entries (total + current year)
-- Running balance
+**Header KPIs**: last entry date, total entries (+ this year), running balance.
 
-**Transaction Table**:
-- Sortable columns: Date, Type, Category, Amount, Details, Effective Date
-- Filterable by type, category, date range
-- Inline edit capability
-- Delete with confirmation
+**Transaction Table**: sortable columns, filterable by type/category/date range, running balance column, pagination, inline delete with confirmation, click a row to edit.
 
-**Add Entry Form**:
-- Date picker, Type selector, Category selector (filtered by type), Amount, Details
-- Effective date auto-calculated from settings (late income shift logic)
-- Validation before save
+**Add Entry Form** (modal): Date, Type, Category (dynamic per type), Amount (negative allowed for Expenses/Savings — see Data Model), Details. Effective date auto-calculated from settings.
 
 ### 3. Import (`/import`)
-**Purpose**: Upload bank CSV files directly and manage keyword mappings.
+**Purpose**: Upload bank CSV files and manage keyword mappings. Two tabs: "Import CSV" and "Keyword Manager".
 
 **Import Flow** (all in-browser):
-1. User exports CSV from bank portal (download to local machine)
-2. User uploads CSV file into app Import page
-3. Papa Parse reads file in browser — raw CSV never leaves the machine
-4. Keyword engine auto-categorizes known descriptions
-5. Dedup check: hash each row, flag duplicates already in DB
-6. User reviews preview table, adjusts categories for unmatched rows
-7. Confirm → only clean fields (date, amount, category, details) saved to IndexedDB + Supabase
+1. Drag-and-drop or pick a CSV file (Papa Parse reads it client-side; raw file never leaves the browser)
+2. Map columns: Date, Amount, Description, plus a toggle for whether amounts are signed (bank convention) or all-positive
+3. Keyword engine auto-categorizes known descriptions; SHA-256 hash dedup flags rows already imported
+4. Preview table: Description and Amount are both editable inline (lets you tag descriptions for future grouping, e.g. "Málaga - Dinner", and correct a row's amount/sign — changing a row's Type auto-flips the amount's sign to match unless you've already hand-edited it)
+5. Confirm → only new, categorized rows are saved
 
-**Keyword Manager**:
-- Table of all keyword → category mappings
-- Add new keyword mapping
-- Edit/delete existing mappings
-- Test: paste a description, see which category it matches
+**Keyword Manager**: table of all keyword → category mappings, add/delete, and a live "test a description" widget.
 
 ### 4. Settings (`/settings`)
-**Purpose**: App configuration and category management.
+**Purpose**: App configuration, category management, cloud sync, data management. Always shows the Cloud Sync panel even when local data is empty (e.g. signed in on a fresh device, not yet synced) — this is intentional so the sync entry point is never unreachable.
 
-- **Category manager** (prominent): Add, rename, reorder, delete categories per type (Income/Expenses/Savings). This is a first-class feature, not buried in a submenu.
-- Late income shift toggle + day threshold
-- Savings rate calculation method
-- Theme toggle (dark/light)
-- Sync controls: Manual sync button, last sync timestamp, sync status
-- Data management: Export all data as JSON, Import backup JSON, Clear all data (with confirmation)
+- **Category manager**: add, rename, reorder (up/down), delete per type. Deletion blocked if in use.
+- App configuration: late income shift toggle + day threshold, savings rate method.
+- **Cloud Sync**: sign in/up (email+password) or sign out, "Sync Now" button, last-synced timestamp.
+- **Data management**: export/import JSON backup, "Clear All Data" (requires typing a confirmation phrase; clears both local IndexedDB *and* the synced Supabase account if signed in).
 
 ---
 
 ## Design System
 
-**MANDATORY**: Follow `/mnt/skills/user/kuba-brand-guidelines/SKILL.md` for all UI.
+**MANDATORY**: Follow the `kuba-brand-guidelines` skill for all UI.
 
 ### Key Tokens
 - **Palette**: Nord — Polar Night backgrounds, Snow Storm light mode, Frost accents, Aurora semantics
@@ -199,243 +250,101 @@ Savings:   ["Emergency Fund", "Retirement Account", "Stock Portfolio"]
 - **Charts**: Recharts with dashed grids, muted axis text, accent gradients, heavy tooltip shadows
 
 ### Responsive Breakpoints
-- Mobile: < 640px (single column, stacked cards, hamburger nav)
+- Mobile: < 640px — single column, stacked cards, **fixed bottom tab bar** (top nav hides)
 - Tablet: 640–1024px (2-column grid where appropriate)
 - Desktop: > 1024px (full layout as designed)
 
----
-
-## Python CSV Parser (`/scripts/`) — OPTIONAL
-
-> Power-user tool for batch processing. Not required for normal app usage.
-> All primary CSV parsing happens in-browser via Papa Parse.
-
-### Structure
-```
-scripts/
-  parse_bank_csv.py      — Main CLI entry point
-  parsers/
-    __init__.py
-    base.py              — Base parser class
-    generic.py           — Generic CSV parser (single format)
-  config/
-    keywords.json        — Keyword-to-category mapping (mirrors app's keyword DB)
-  output/                — Generated JSON files (gitignored)
-```
+Mobile-specific: 36–44px touch targets on icon buttons, `font-size: 16px` forced on all inputs/selects (prevents iOS Safari auto-zoom on focus).
 
 ---
 
-## Development Sessions
+## Python CSV Parser (`/scripts/`) — OPTIONAL, NOT BUILT
 
-Each session is designed to produce a working, deployable increment.
-Target: ~1-2 hours per session in Claude Code.
-
-### Session 1: Scaffold + Deploy
-**Goal**: Empty app deployed to GitHub Pages, proving the full pipeline works.
-- [ ] `npm create vite@latest finance-dashboard -- --template react`
-- [ ] Install dependencies: react-router-dom, recharts, dexie, papaparse, lucide-react
-- [ ] Basic `App.jsx` with React Router (4 routes: /, /tracking, /import, /settings)
-- [ ] Nord theme CSS variables (dark + light modes) from kuba-brand-guidelines
-- [ ] Global styles: fonts (Outfit + JetBrains Mono), resets, CSS variables
-- [ ] GitHub repo init + push
-- [ ] GitHub Actions workflow for build + deploy to GitHub Pages
-- [ ] **Deliverable**: Live URL showing empty themed app with working navigation
-
-### Session 2: Data Layer + Sample Data
-**Goal**: Dexie.js schema, sample data seeded, data hooks ready.
-- [ ] Dexie.js database schema (transactions, categories, keywords, settings tables)
-- [ ] Seed script with ~60 sample transactions (Jan–Mar 2024, all categories)
-- [ ] Default category seed (Income/Expenses/Savings lists)
-- [ ] `useTransactions` hook (CRUD + queries by date range, type, category)
-- [ ] `useCategories` hook (CRUD + list by type)
-- [ ] `useSettings` hook (read/update app settings)
-- [ ] `useFilters` hook (year/month state management)
-- [ ] Effective date calculation utility (late income shift logic)
-- [ ] Currency + date formatting utilities
-- [ ] **Deliverable**: App loads with sample data visible in console, all hooks tested
-
-### Session 3: App Shell + Navigation
-**Goal**: Full responsive layout with nav, theme toggle, and shared components.
-- [ ] AppShell layout component (sidebar on desktop, bottom nav on mobile)
-- [ ] Navbar with tab links + active state styling
-- [ ] ThemeToggle component (dark/light switch, persisted to settings)
-- [ ] Shared Card component (reusable container with Nord styling)
-- [ ] Shared FilterBar component (Year + Month selectors)
-- [ ] Responsive breakpoint handling
-- [ ] Page placeholder components (Dashboard, Tracking, Import, Settings)
-- [ ] **Deliverable**: Navigable app with working theme toggle, responsive layout
-
-### Session 4: Dashboard — KPIs + Breakdown Tables
-**Goal**: Dashboard page with live data from sample transactions.
-- [ ] KPICard component (period completion, tracking balance, savings rate, total income)
-- [ ] Wire KPI calculations to `useTransactions` + `useFilters`
-- [ ] BreakdownTable component (category | tracked amount | total row)
-- [ ] Three breakdown tables: Income, Expenses, Savings
-- [ ] Filter controls wired to dashboard data
-- [ ] Color-coded type indicators (green/red/blue for Income/Expenses/Savings)
-- [ ] **Deliverable**: Dashboard shows real calculated KPIs and breakdowns for selected period
-
-### Session 5: Dashboard — Charts
-**Goal**: Complete dashboard with donut charts and monthly bar chart.
-- [ ] DonutChart component (Recharts PieChart, Nord palette colors)
-- [ ] Three donut charts: Income categories, Expenses categories, Savings categories
-- [ ] MonthlyBarChart component (Recharts BarChart, grouped bars)
-- [ ] Chart tooltips with formatted currency values
-- [ ] Responsive chart sizing (stack on mobile)
-- [ ] "Full Year" view for bar chart showing all 12 months
-- [ ] **Deliverable**: Fully functional dashboard matching Excel spreadsheet layout
-
-### Session 6: Tracking — Transaction Table
-**Goal**: Full transaction ledger with sorting and filtering.
-- [ ] TransactionTable component (sortable columns)
-- [ ] Column rendering: Date, Type, Category, Amount (€ formatted), Details, Effective Date
-- [ ] Sort by any column (click header to toggle asc/desc)
-- [ ] Filter controls: Type dropdown, Category dropdown (filtered by type), Date range
-- [ ] Running balance column (cumulative calculation)
-- [ ] Header KPI cards (date of last entry, total entries, running balance)
-- [ ] Pagination or virtual scroll for large datasets
-- [ ] **Deliverable**: Browsable, sortable, filterable transaction history
-
-### Session 7: Tracking — Add / Edit / Delete
-**Goal**: Full CRUD operations on transactions from the UI.
-- [ ] AddEntryForm component (modal or slide-in panel)
-- [ ] Form fields: Date, Type, Category (dynamic dropdown filtered by type), Amount, Details
-- [ ] Effective date auto-calculation based on settings
-- [ ] Form validation (required fields, positive amounts, valid dates)
-- [ ] Edit mode: click row to open pre-filled form, save updates
-- [ ] Delete with confirmation modal
-- [ ] Success/error toast notifications
-- [ ] **Deliverable**: Users can manually add, edit, and delete transactions
-
-### Session 8: Import — CSV Parsing + Preview
-**Goal**: Upload bank CSV, parse in browser, preview before saving.
-- [ ] ImportUpload component (drag-and-drop or file picker)
-- [ ] Papa Parse integration: read CSV, detect columns, parse rows
-- [ ] Column mapping UI: map CSV columns to transaction fields (date, amount, description)
-- [ ] Hash generation: SHA-256(date + amount + description) for each row
-- [ ] Duplicate detection: check hashes against existing transactions
-- [ ] PreviewTable component: show parsed rows with suggested types/categories
-- [ ] Status indicators: new (green), duplicate (yellow), unmatched (orange)
-- [ ] Confirm button: save non-duplicate rows to IndexedDB
-- [ ] **Deliverable**: User can upload CSV and import transactions with dedup protection
-
-### Session 9: Import — Keyword Engine + Manager
-**Goal**: Auto-categorization of imported transactions via keyword matching.
-- [ ] Keyword matching engine: scan description field, match against keyword DB
-- [ ] Case-insensitive, partial match support
-- [ ] Auto-assign type + category when keyword matches
-- [ ] KeywordManager component: table of all keyword → category mappings
-- [ ] Add new keyword mapping form
-- [ ] Edit/delete existing mappings
-- [ ] Test widget: paste a description, see which category it would match
-- [ ] Wire keyword engine into import preview (auto-fill categories)
-- [ ] **Deliverable**: Smart import with auto-categorization, manageable keyword dictionary
-
-### Session 10: Settings + Category Management
-**Goal**: Full settings page with category CRUD and app configuration.
-- [ ] CategoryEditor component: add, rename, reorder, delete categories per type
-- [ ] Drag-and-drop reordering (or up/down buttons for simplicity)
-- [ ] Prevent deletion of categories with existing transactions (warn + reassign)
-- [ ] Settings form: late income shift toggle + day threshold
-- [ ] Savings rate calculation method selector
-- [ ] Data management section: Export all data as JSON, Import backup JSON
-- [ ] Clear all data with double-confirmation
-- [ ] **Deliverable**: Users can fully customize categories and app behavior
-
-### Session 11: Supabase Integration + Sync
-**Goal**: Cloud persistence with cross-device sync.
-- [ ] Supabase project setup (free tier)
-- [ ] Database tables mirroring Dexie schema (transactions, categories, keywords, settings)
-- [ ] Row-level security policies (user can only access own data)
-- [ ] Supabase Auth integration (email/password login)
-- [ ] Login/logout UI
-- [ ] Sync service: push local changes → Supabase, pull remote → IndexedDB
-- [ ] Manual "Sync" button with last-sync timestamp display
-- [ ] Conflict resolution: last-write-wins with timestamp comparison
-- [ ] **Deliverable**: Data persists in cloud, accessible from any device after sync
-
-### Session 12: Mobile Polish + Final QA
-**Goal**: Production-ready app, fully tested on mobile.
-- [ ] Mobile navigation refinements (bottom tab bar, touch targets)
-- [ ] Table responsiveness (horizontal scroll or card view on small screens)
-- [ ] Form usability on mobile (input sizing, keyboard handling)
-- [ ] Chart touch interactions (tap for tooltips)
-- [ ] Loading states and skeleton screens
-- [ ] Error boundaries and fallback UI
-- [ ] Empty state designs (no data yet screens)
-- [ ] Final visual QA against kuba-brand-guidelines
-- [ ] **Deliverable**: Production-ready, mobile-friendly finance tracker
+> Power-user tool for batch processing. Not required for normal app usage —
+> all primary CSV parsing happens in-browser via Papa Parse. This was never
+> actually implemented; low priority unless specifically requested.
 
 ---
 
-## File Structure
+## File Structure (actual, as of last session)
+
 ```
-finance-dashboard/
+finance-tracker/
   public/
   src/
     components/
-      layout/          — AppShell, Navbar, ThemeToggle
-      dashboard/       — KPICard, BreakdownTable, DonutChart, MonthlyBarChart
-      tracking/        — TransactionTable, AddEntryForm, EditModal
-      import/          — ImportUpload, PreviewTable, KeywordManager
-      settings/        — SettingsForm, DataManagement, CategoryEditor
-      shared/          — Button, Card, Select, DatePicker, Modal, FilterBar, Toast
+      layout/          — AppShell, Navbar (desktop), BottomNav (mobile), ThemeToggle
+      dashboard/       — KPICard, BreakdownTable, DonutChart, MonthlyBarChart, ChartTooltip
+      tracking/        — TransactionTable, TrackingFilters, AddEntryForm
+      import/          — ImportUpload, ColumnMapper, PreviewTable, KeywordManager
+      settings/        — CategoryEditor, SettingsForm, AuthPanel, DataManagement
+      shared/          — Card, Modal, ConfirmDialog, FilterBar, PageLoader, NeedsSyncState, ErrorBoundary
     hooks/
-      useTransactions.js
-      useCategories.js
-      useSettings.js
+      useTransactions.js, useCategories.js, useKeywords.js, useSettings.js
+      useAuth.js        — Supabase session, sign in/up/out
+      useSync.js        — thin wrapper around db/syncEngine for the manual Sync button
       useFilters.js
-      useSync.js
+      ToastContext.js, ToastProvider.jsx, useToast.js — toast notifications
     db/
-      index.js         — Dexie instance + schema
-      seed.js          — Sample data loader (dev only)
-      supabase.js      — Supabase client + sync logic
+      index.js          — Dexie instance + versioned schema (v1-v3: added updatedAt, tombstones)
+      seed.js            — demo fixture loader (skipped if a Supabase session already exists)
+      supabase.js        — Supabase client + isSupabaseConfigured flag
+      syncEngine.js       — pushAll/pullAll/syncAll — the actual sync logic, table-mapping aware
+      demoBackup.js       — snapshot/restore demo state across login/logout
+      reset.js            — wipeLocalData helper
+      tombstones.js        — recordTombstone helper
+    pages/
+      Dashboard.jsx, Tracking.jsx, Import.jsx, Settings.jsx  — all lazy-loaded in App.jsx
     utils/
-      calculations.js  — Savings rate, balances, aggregations
-      dateUtils.js     — Effective date logic, period helpers
-      formatters.js    — Currency, percentages, date display
-      hash.js          — SHA-256 hash generation for dedup
-      csvParser.js     — Papa Parse wrapper + column mapping
-      keywordEngine.js — Description → category matching
+      calculations.js   — aggregation, running balance, savings rate, monthly totals
+      dateUtils.js      — effective date logic, period helpers
+      formatters.js     — currency, percentages, date display
+      hash.js           — SHA-256 hash generation for dedup
+      csvParser.js      — Papa Parse wrapper, amount/date parsing
+      keywordEngine.js  — description → category matching
+      syncMapping.js     — camelCase (local) <-> snake_case (Supabase) field mapping per table
+      chartColors.js
     styles/
-      theme.css        — Nord CSS variables (dark + light)
-      global.css       — Base styles, fonts, resets
-    App.jsx
-    main.jsx
-  scripts/             — Python CSV parsers (optional, power-user)
-  .github/
-    workflows/
-      deploy.yml       — GitHub Actions build + deploy
-  index.html
-  vite.config.js
-  package.json
-  CLAUDE.md            — This file
+      theme.css, global.css
+    App.jsx              — routing + the login/logout data-space-switch effect (see Demo vs Account Data)
+    main.jsx              — seeds demo data (if applicable) before first render, wraps in ErrorBoundary
+  supabase/
+    schema.sql            — table definitions, RLS policies, AND the grants RLS alone doesn't cover
+  scripts/                — Python CSV parser, not built out
+  .github/workflows/
+    deploy.yml            — build + deploy, injects Supabase secrets, adds 404.html SPA fallback
+    keep-alive.yml         — scheduled ping to prevent Supabase free-tier auto-pause
+  .env.local.example       — template for local Supabase env vars (.env.local is gitignored)
+  index.html, vite.config.js, package.json
+  CLAUDE.md                — this file
+  README.md                — setup/deploy/architecture docs for humans
 ```
 
 ---
 
 ## Coding Conventions
 
-- **Components**: Functional components with hooks. No class components.
-- **State**: React state + Dexie.js. No Redux or external state library unless complexity demands it.
+- **Components**: Functional components with hooks. No class components (except `ErrorBoundary`, which React requires as a class).
+- **State**: React state + Dexie.js. No Redux or external state library.
 - **Naming**: PascalCase for components, camelCase for functions/variables, kebab-case for CSS files.
 - **Formatting**: Prettier defaults. 2-space indent.
 - **Amounts**: Income is always stored positive. Expenses and Savings are normally positive, but may be negative to represent a reimbursement/refund against that same category (e.g. you pay €100 for dinner, a friend pays you back €80 — log a second Expenses/Dinner entry of -€80, giving a net €20 cost, instead of recording the refund as Income). Category aggregation, running balance, and savings rate all net out correctly with this convention. Donut charts filter out categories whose net total is ≤ 0, since a negative slice can't be drawn.
 - **Dates**: ISO strings (`YYYY-MM-DD`) in storage. Formatted for display via `dateUtils.js`.
-- **Currency**: No currency symbol stored. Display formatting adds `€` (EUR). Configurable later if multi-currency needed.
-- **No real data in commits**: Sample data files are clearly marked. `.gitignore` covers output folders.
+- **Currency**: No currency symbol stored. Display formatting adds `€` (EUR).
+- **No real data in commits**: Sample data files are clearly marked as fixtures. The user's real categories/keywords/transactions exist only in their browser + their own Supabase project, never in this repo.
 
 ---
 
-## Sample Data Contract
+## Sample Data Contract (demo mode only)
 
-All development uses this fixture data. Categories and amounts are realistic but fictional.
+Shown when logged out. Categories and amounts are realistic but entirely fictional — never replace these with the user's real category names.
 
 - **3 income sources**: Employment (Net), Side Hustle (Net), Dividends
 - **9 expense categories**: Housing, Utilities, Groceries, Transportation, Fun & Vacations, Clothing, Body Care & Medicine, Media, Insurances
 - **3 savings categories**: Emergency Fund, Retirement Account, Stock Portfolio
-- **Date range**: Jan 2024 – Mar 2024 (enough to test multi-month views)
-- **~60 transactions** covering all categories and types
+- **Date range**: Jan 2024 – Mar 2024
+- **~57-60 transactions** covering all categories and types
+- **6 keyword mappings** (rent, supermarket, electric, transit, salary, dividend)
 
 ---
 
@@ -443,16 +352,17 @@ All development uses this fixture data. Categories and amounts are realistic but
 
 Ideas captured for later, not yet built:
 
-- **Trip/tag grouping**: Kuba prefixes related transaction descriptions with a shared tag during import (e.g. "Málaga - Jantar", "Málaga - Bebidas") specifically so they can later be grouped and summed to see total spend on a given trip/event. Needs a way to search/filter transactions by a description prefix and show a running total — not built yet, but the description field is already editable during CSV import preview to support tagging now.
+- **Trip/tag grouping**: Kuba prefixes related transaction descriptions with a shared tag during import (e.g. "Málaga - Jantar", "Málaga - Bebidas") so they can later be grouped and summed to see total spend on a given trip/event. Needs a way to search/filter transactions by a description prefix and show a running total. The description field is already editable during CSV import preview to support tagging now; the grouping/filtering UI itself isn't built.
+- **Bundle size**: main + Dashboard chunks are large (Recharts is the biggest contributor). Route-level code-splitting is already in place; further splitting (e.g. lazy-loading Papa Parse only on the Import page) would be the next lever if load time becomes a concern.
+- **Reassign-on-delete for categories**: currently deletion is just blocked if a category is in use. A "reassign transactions to another category, then delete" flow would be more convenient than manually re-editing transactions first.
 
 ---
 
 ## Security Notes
 
-- No `.env` files with secrets — there are none (Supabase anon key is safe for frontend).
-- Raw bank CSV files are never transmitted — parsed entirely in browser.
-- Supabase RLS ensures only authenticated user can access their data.
+- The Supabase anon key is safe to expose in frontend code (it's in the deployed JS bundle) — Row-Level Security plus explicit `GRANT`s are what actually protect data, not secrecy of the key.
+- `.env.local` (gitignored) holds `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` for local dev; the same two values are set as GitHub Actions repository secrets for the live build.
+- Raw bank CSV files are never transmitted — parsed entirely in-browser via Papa Parse.
 - No analytics or tracking scripts.
-- Python scripts run locally — no data sent anywhere.
 - GitHub Pages serves static files only — no server-side code.
-- Export/import uses local file system — no cloud storage beyond Supabase.
+- Export/import uses the local file system for JSON backups — no cloud storage beyond the user's own Supabase project.
