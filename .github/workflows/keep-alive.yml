@@ -1,0 +1,16 @@
+name: Keep Supabase Project Alive
+
+on:
+  schedule:
+    - cron: '0 6 */4 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        run: |
+          curl -sS -o /dev/null -w "Supabase ping responded with HTTP %{http_code}\n" \
+            "${{ secrets.VITE_SUPABASE_URL }}/rest/v1/categories?select=id&limit=1" \
+            -H "apikey: ${{ secrets.VITE_SUPABASE_ANON_KEY }}"
